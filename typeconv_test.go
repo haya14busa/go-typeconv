@@ -1,8 +1,14 @@
 package typeconv
 
 import (
+	"bytes"
+	"go/printer"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/kylelemons/godebug/diff"
 
 	"golang.org/x/tools/go/loader"
 )
@@ -32,4 +38,34 @@ func TestLoad(t *testing.T) {
 			t.Errorf("len(typeErrs) is empty, expect errors")
 		}
 	}
+}
+
+func TestRewriteFile_assign(t *testing.T) {
+	prog, typeErrs, err := Load(loader.Config{}, []string{"testdata/assign.input.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := prog.InitialPackages()[0].Files[0]
+	if err := RewriteFile(prog.Fset, f, typeErrs); err != nil {
+		t.Fatal(err)
+	}
+
+	buf := new(bytes.Buffer)
+	if err := printer.Fprint(buf, prog.Fset, f); err != nil {
+		t.Fatal(err)
+	}
+	gf, err := os.Open("testdata/assign.golden.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gf.Close()
+	b, err := ioutil.ReadAll(gf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if d := diff.Diff(buf.String(), string(b)); d != "" {
+		t.Errorf("diff: (-got +want):\n%s", d)
+	}
+
 }
