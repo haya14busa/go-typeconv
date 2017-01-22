@@ -41,36 +41,39 @@ func run(w io.Writer, args []string, opt *option) error {
 			if err := typeconv.RewriteFile(prog.Fset, f, typeErrs); err != nil {
 				return err
 			}
-			res := new(bytes.Buffer)
-			if err := format.Node(res, prog.Fset, f); err != nil {
+			buf := new(bytes.Buffer)
+			if err := format.Node(buf, prog.Fset, f); err != nil {
 				return err
 			}
-			if opt.write {
-				fh, err := os.Create(filename)
-				if err != nil {
-					return err
-				}
-				fh.Write(res.Bytes())
-				fh.Close()
+			res := buf.Bytes()
+			in, err := os.Open(filename)
+			if err != nil {
+				return err
 			}
-			if opt.doDiff {
-				in, err := os.Open(filename)
-				if err != nil {
-					return err
+			src, err := ioutil.ReadAll(in)
+			if err != nil {
+				return err
+			}
+			if !bytes.Equal(src, res) {
+				if opt.write {
+					fh, err := os.Create(filename)
+					if err != nil {
+						return err
+					}
+					fh.Write(res)
+					fh.Close()
 				}
-				src, err := ioutil.ReadAll(in)
-				if err != nil {
-					return err
+				if opt.doDiff {
+					data, err := diff(src, res)
+					if err != nil {
+						return fmt.Errorf("computing diff: %s", err)
+					}
+					fmt.Fprintf(w, "diff %s gotypeconv/%s\n", filename, filename)
+					w.Write(data)
 				}
-				data, err := diff(src, res.Bytes())
-				if err != nil {
-					return fmt.Errorf("computing diff: %s", err)
-				}
-				fmt.Printf("diff %s gotypeconv/%s\n", filename, filename)
-				w.Write(data)
 			}
 			if !opt.write && !opt.doDiff {
-				w.Write(res.Bytes())
+				w.Write(res)
 			}
 		}
 	}
