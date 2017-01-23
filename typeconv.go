@@ -114,7 +114,7 @@ func rewriteErrFuncArg(path []ast.Node, terr *ErrFuncArg) error {
 				}
 			}
 			if idx == -1 {
-				return fmt.Errorf("rewriteErrFuncArg: cannot find expected value: %v", child)
+				continue
 			}
 			// TODO(haya14busa): check terr.ArgType is convertible to terr.ParamType
 			call.Args[idx] = &ast.CallExpr{
