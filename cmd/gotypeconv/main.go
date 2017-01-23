@@ -30,6 +30,7 @@ func main() {
 	flag.Parse()
 	if err := run(os.Stdout, flag.Args(), opt); err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
