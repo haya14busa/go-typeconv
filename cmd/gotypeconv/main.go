@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
 
 	typeconv "github.com/haya14busa/go-typeconv"
 
@@ -18,12 +19,14 @@ import (
 type option struct {
 	write  bool
 	doDiff bool
+	rules  strslice
 }
 
 func main() {
 	opt := &option{}
 	flag.BoolVar(&opt.write, "w", false, "write result to (source) file instead of stdout")
 	flag.BoolVar(&opt.doDiff, "d", false, "display diffs instead of rewriting files")
+	flag.Var(&opt.rules, "r", "type conversion rules currently just for type conversion of binary expression (e.g., 'int -> uint32')")
 	flag.Parse()
 	if err := run(os.Stdout, flag.Args(), opt); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -31,6 +34,9 @@ func main() {
 }
 
 func run(w io.Writer, args []string, opt *option) error {
+	if err := addRules(opt.rules); err != nil {
+		return err
+	}
 	prog, typeErrs, err := typeconv.Load(loader.Config{}, args)
 	if err != nil {
 		return err
@@ -80,6 +86,18 @@ func run(w io.Writer, args []string, opt *option) error {
 	return nil
 }
 
+func addRules(rules []string) error {
+	for _, r := range rules {
+		f := strings.Split(r, "->")
+		if len(f) != 2 {
+			return fmt.Errorf("type conversion rule must be the form 'from -> to': %v", r)
+		}
+		from, to := strings.TrimSpace(f[0]), strings.TrimSpace(f[1])
+		typeconv.DefaultRule.Add(from, to)
+	}
+	return nil
+}
+
 // copied and modified from $GOPATH/src/github.com/golang/go/src/cmd/gofmt/gofmt.go
 //
 // Copyright 2009 The Go Authors. All rights reserved.
@@ -111,4 +129,15 @@ func diff(b1, b2 []byte) (data []byte, err error) {
 	}
 	return
 
+}
+
+type strslice []string
+
+func (ss *strslice) String() string {
+	return fmt.Sprintf("%v", *ss)
+}
+
+func (ss *strslice) Set(value string) error {
+	*ss = append(*ss, value)
+	return nil
 }
