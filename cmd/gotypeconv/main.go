@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
@@ -28,7 +29,9 @@ func main() {
 	flag.BoolVar(&opt.doDiff, "d", false, "display diffs instead of rewriting files")
 	flag.Var(&opt.rules, "r", "type conversion rules currently just for type conversion of binary expression (e.g., 'int -> uint32')")
 	flag.Parse()
-	if err := run(os.Stdout, flag.Args(), opt); err != nil {
+	out := bufio.NewWriter(os.Stdout)
+	defer out.Flush()
+	if err := run(out, flag.Args(), opt); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
