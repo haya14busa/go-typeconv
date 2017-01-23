@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"go/ast"
 	"go/format"
+	"go/types"
 	"io"
 	"io/ioutil"
 	"os"
@@ -47,45 +49,53 @@ func run(w io.Writer, args []string, opt *option) error {
 	}
 	for _, pkg := range prog.InitialPackages() {
 		for _, f := range pkg.Files {
-			filename := prog.Fset.File(f.Pos()).Name()
-			if err := typeconv.RewriteFile(prog.Fset, f, pkg, typeErrs); err != nil {
+			if err := runFile(w, opt, prog, pkg, f, typeErrs); err != nil {
 				return err
-			}
-			buf := new(bytes.Buffer)
-			if err := format.Node(buf, prog.Fset, f); err != nil {
-				return err
-			}
-			res := buf.Bytes()
-			in, err := os.Open(filename)
-			if err != nil {
-				return err
-			}
-			src, err := ioutil.ReadAll(in)
-			if err != nil {
-				return err
-			}
-			if !bytes.Equal(src, res) {
-				if opt.write {
-					fh, err := os.Create(filename)
-					if err != nil {
-						return err
-					}
-					fh.Write(res)
-					fh.Close()
-				}
-				if opt.doDiff {
-					data, err := diff(src, res)
-					if err != nil {
-						return fmt.Errorf("computing diff: %s", err)
-					}
-					fmt.Fprintf(w, "diff %s gotypeconv/%s\n", filename, filename)
-					w.Write(data)
-				}
-			}
-			if !opt.write && !opt.doDiff {
-				w.Write(res)
 			}
 		}
+	}
+	return nil
+}
+
+func runFile(w io.Writer, opt *option, prog *loader.Program, pkg *loader.PackageInfo, f *ast.File, typeErrs []types.Error) error {
+	filename := prog.Fset.File(f.Pos()).Name()
+	if err := typeconv.RewriteFile(prog.Fset, f, pkg, typeErrs); err != nil {
+		return err
+	}
+	buf := new(bytes.Buffer)
+	if err := format.Node(buf, prog.Fset, f); err != nil {
+		return err
+	}
+	res := buf.Bytes()
+	in, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	src, err := ioutil.ReadAll(in)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(src, res) {
+		if opt.write {
+			fh, err := os.Create(filename)
+			if err != nil {
+				return err
+			}
+			fh.Write(res)
+			fh.Close()
+		}
+		if opt.doDiff {
+			data, err := diff(src, res)
+			if err != nil {
+				return fmt.Errorf("computing diff: %s", err)
+			}
+			fmt.Fprintf(w, "diff %s gotypeconv/%s\n", filename, filename)
+			w.Write(data)
+		}
+	}
+	if !opt.write && !opt.doDiff {
+		w.Write(res)
 	}
 	return nil
 }
