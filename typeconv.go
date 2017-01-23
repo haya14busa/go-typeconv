@@ -88,7 +88,7 @@ func rewriteErrVarDecl(path []ast.Node, terr *ErrVarDecl) error {
 				}
 			}
 			if idx == -1 {
-				return fmt.Errorf("cannot find expected value: %v", child)
+				return fmt.Errorf("rewriteErrVarDecl: cannot find expected value: %v", child)
 			}
 			// TODO(haya14busa): check terr.ValueType is convertible to terr.NameType
 			valuespec.Values[idx] = &ast.CallExpr{
@@ -114,7 +114,7 @@ func rewriteErrFuncArg(path []ast.Node, terr *ErrFuncArg) error {
 				}
 			}
 			if idx == -1 {
-				return fmt.Errorf("cannot find expected value: %v", child)
+				return fmt.Errorf("rewriteErrFuncArg: cannot find expected value: %v", child)
 			}
 			// TODO(haya14busa): check terr.ArgType is convertible to terr.ParamType
 			call.Args[idx] = &ast.CallExpr{
