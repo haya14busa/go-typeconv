@@ -19,6 +19,9 @@ const (
 
 	// invalid operation: mismatched types int and float64
 	TypeErrMismatched
+
+	// cannot use x (variable of type int) as float64 value in return statement
+	TypeErrReturn
 )
 
 // TypeError represents type error.
@@ -79,11 +82,22 @@ func (*ErrMismatched) typ() typErr {
 	return TypeErrMismatched
 }
 
+// ErrReturn represents type error at return statement.
+type ErrReturn struct {
+	WantType string
+	GotType  string
+}
+
+func (*ErrReturn) typ() typErr {
+	return TypeErrReturn
+}
+
 var regexps = [...]*regexp.Regexp{
 	TypeErrVarDecl:    regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in variable declaration$`),
 	TypeErrFuncArg:    regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in argument to funcarg$`),
 	TypeErrAssign:     regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in assignment$`),
 	TypeErrMismatched: regexp.MustCompile(`mismatched types (?P<left>.+) and (?P<right>.+)$`),
+	TypeErrReturn:     regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in return statement$`),
 }
 
 // NewTypeErr creates TypeError from types.Error.
@@ -103,6 +117,8 @@ func NewTypeErr(err types.Error) TypeError {
 			return newErrAssign(ms, names)
 		case TypeErrMismatched:
 			return newErrMismatched(ms, names)
+		case TypeErrReturn:
+			return newErrReturn(ms, names)
 		}
 	}
 	return nil
@@ -171,6 +187,23 @@ func newErrMismatched(matches, names []string) *ErrMismatched {
 			err.LeftType = m
 		case "right":
 			err.RightType = m
+		}
+	}
+	return err
+}
+
+func newErrReturn(matches, names []string) *ErrReturn {
+	err := &ErrReturn{}
+	for i, name := range names {
+		if i == 0 {
+			continue
+		}
+		m := matches[i]
+		switch name {
+		case "want":
+			err.WantType = m
+		case "got":
+			err.GotType = m
 		}
 	}
 	return err

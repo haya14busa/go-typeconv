@@ -30,12 +30,16 @@ func TestNewTypeErr(t *testing.T) {
 			in:      "invalid operation: mismatched types int and float64",
 			wantTyp: TypeErrMismatched,
 		},
+		{
+			in:      "cannot use x (variable of type int) as float64 value in return statement",
+			wantTyp: TypeErrReturn,
+		},
 	}
 
 	for _, tt := range tests {
 		terr := NewTypeErr(types.Error{Msg: tt.in})
 		if terr == nil {
-			t.Errorf("got nil for %v", tt.in)
+			t.Errorf("got nil. in: %v", tt.in)
 			continue
 		}
 		if got := terr.typ(); got != tt.wantTyp {

@@ -75,6 +75,10 @@ func RewriteFile(fset *token.FileSet, f *ast.File, pkg *loader.PackageInfo, type
 			if err := rewriteErrMismatched(path, pkg, terr); err != nil {
 				return err
 			}
+		case *ErrReturn:
+			if err := rewriteErrReturn(path, pkg, terr); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -226,6 +230,42 @@ func rewriteErrMismatched(path []ast.Node, pkg *loader.PackageInfo, terr *ErrMis
 			default:
 				return nil
 			}
+		}
+	}
+	return nil
+}
+
+func rewriteErrReturn(path []ast.Node, pkg *loader.PackageInfo, terr *ErrReturn) error {
+	for i := range path {
+		if i+3 >= len(path) {
+			break
+		}
+		child, parent, funcDeclNode := path[i], path[i+1], path[i+3]
+		returnStmt, ok := parent.(*ast.ReturnStmt)
+		if !ok {
+			continue
+		}
+		funcDecl, ok := funcDeclNode.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+		idx := -1
+		for i, r := range returnStmt.Results {
+			if r == child {
+				idx = i
+			}
+		}
+		if idx == -1 {
+			continue
+		}
+		gotType := pkg.Info.TypeOf(returnStmt.Results[idx])
+		wantType := pkg.Info.TypeOf(funcDecl.Type.Results.List[idx].Type)
+		if types.ConvertibleTo(gotType, wantType) {
+			returnStmt.Results[idx] = &ast.CallExpr{
+				Fun:  ast.NewIdent(wantType.String()),
+				Args: []ast.Expr{returnStmt.Results[idx]},
+			}
+			return nil
 		}
 	}
 	return nil
