@@ -7,4 +7,5 @@ func f() {
 	)
 	x = y
 	_ = x
+	y, x, x = 1, y, y
 }

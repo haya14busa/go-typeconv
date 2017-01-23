@@ -45,6 +45,7 @@ func TestRewriteFile(t *testing.T) {
 	files := []string{
 		"assign",
 		"funcarg",
+		"reassign",
 	}
 	for _, fname := range files {
 		input := fmt.Sprintf("testdata/%s.input.go", fname)

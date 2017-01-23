@@ -14,7 +14,7 @@ const (
 	// cannot use x (variable of type int) as float64 value in argument to funcarg
 	TypeErrFuncArg
 
-	// cannot use y (type int) as type float64 in assignment
+	// cannot use y (variable of type int) as float64 value in assignment
 	TypeErrAssign
 
 	// invalid operation: mismatched types int and float64
@@ -50,8 +50,6 @@ func (*ErrVarDecl) typ() typErr {
 }
 
 // ErrFuncArg represents type error at function arguments.
-//
-//
 type ErrFuncArg struct {
 	ParamType string // https://golang.org/pkg/go/ast/#FuncType
 	ArgType   string // https://golang.org/pkg/go/ast/#CallExpr
@@ -61,9 +59,20 @@ func (*ErrFuncArg) typ() typErr {
 	return TypeErrFuncArg
 }
 
+// ErrAssign represents type error at (re) assignments.
+type ErrAssign struct {
+	LeftType  string
+	RightType string
+}
+
+func (*ErrAssign) typ() typErr {
+	return TypeErrAssign
+}
+
 var regexps = [...]*regexp.Regexp{
 	TypeErrVarDecl: regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in variable declaration$`),
 	TypeErrFuncArg: regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in argument to funcarg$`),
+	TypeErrAssign:  regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in assignment$`),
 }
 
 // NewTypeErr creates TypeError from types.Error.
@@ -79,6 +88,8 @@ func NewTypeErr(err types.Error) TypeError {
 			return newErrVarDecl(ms, names)
 		case TypeErrFuncArg:
 			return newErrFuncArg(ms, names)
+		case TypeErrAssign:
+			return newErrAssign(ms, names)
 		}
 	}
 	return nil
@@ -113,6 +124,23 @@ func newErrFuncArg(matches, names []string) *ErrFuncArg {
 			err.ArgType = m
 		case "want":
 			err.ParamType = m
+		}
+	}
+	return err
+}
+
+func newErrAssign(matches, names []string) *ErrAssign {
+	err := &ErrAssign{}
+	for i, name := range names {
+		if i == 0 {
+			continue
+		}
+		m := matches[i]
+		switch name {
+		case "got":
+			err.RightType = m
+		case "want":
+			err.LeftType = m
 		}
 	}
 	return err

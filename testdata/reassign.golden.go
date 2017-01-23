@@ -7,4 +7,5 @@ func f() {
 	)
 	x = float64(y)
 	_ = x
+	y, x, x = 1, float64(y), float64(y)
 }

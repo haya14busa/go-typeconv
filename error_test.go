@@ -22,6 +22,10 @@ func TestNewTypeErr(t *testing.T) {
 			in:      "cannot use x (variable of type int) as float64 value in argument to funcarg",
 			wantTyp: TypeErrFuncArg,
 		},
+		{
+			in:      "cannot use y (variable of type int) as float64 value in assignment",
+			wantTyp: TypeErrAssign,
+		},
 	}
 
 	for _, tt := range tests {

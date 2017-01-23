@@ -67,6 +67,10 @@ func RewriteFile(fset *token.FileSet, f *ast.File, pkg *loader.PackageInfo, type
 			if err := rewriteErrFuncArg(path, pkg, terr); err != nil {
 				return err
 			}
+		case *ErrAssign:
+			if err := rewriteErrAssign(path, pkg, terr); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -150,5 +154,36 @@ func rewriteErrFuncArg(path []ast.Node, pkg *loader.PackageInfo, terr *ErrFuncAr
 			}
 		}
 	}
+	return nil
+}
+
+func rewriteErrAssign(path []ast.Node, pkg *loader.PackageInfo, terr *ErrAssign) error {
+	for i := range path {
+		if i+1 >= len(path) {
+			break
+		}
+		child, parent := path[i], path[i+1]
+		if assign, ok := parent.(*ast.AssignStmt); ok {
+			idx := -1
+			for i, r := range assign.Rhs {
+				if r == child {
+					idx = i
+					break
+				}
+			}
+			if idx == -1 {
+				continue
+			}
+			left, right := assign.Lhs[idx], assign.Rhs[idx]
+			if !types.ConvertibleTo(pkg.TypeOf(right), pkg.TypeOf(left)) {
+				continue
+			}
+			assign.Rhs[idx] = &ast.CallExpr{
+				Fun:  ast.NewIdent(terr.LeftType),
+				Args: []ast.Expr{assign.Rhs[idx]},
+			}
+		}
+	}
+
 	return nil
 }
