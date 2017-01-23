@@ -6,4 +6,6 @@ func f() {
 	var _ uint = x
 	var _ uint = int(1)
 	var _ uint = int(1) + int(1)
+	// cannot convert
+	var _ int = "string"
 }

@@ -54,8 +54,9 @@ func TestRewriteFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", fname, err)
 		}
-		f := prog.InitialPackages()[0].Files[0]
-		if err := RewriteFile(prog.Fset, f, typeErrs); err != nil {
+		pkg := prog.InitialPackages()[0]
+		f := pkg.Files[0]
+		if err := RewriteFile(prog.Fset, f, pkg, typeErrs); err != nil {
 			t.Fatalf("%s: %v", fname, err)
 		}
 

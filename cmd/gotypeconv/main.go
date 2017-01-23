@@ -38,7 +38,7 @@ func run(w io.Writer, args []string, opt *option) error {
 	for _, pkg := range prog.InitialPackages() {
 		for _, f := range pkg.Files {
 			filename := prog.Fset.File(f.Pos()).Name()
-			if err := typeconv.RewriteFile(prog.Fset, f, typeErrs); err != nil {
+			if err := typeconv.RewriteFile(prog.Fset, f, pkg, typeErrs); err != nil {
 				return err
 			}
 			buf := new(bytes.Buffer)

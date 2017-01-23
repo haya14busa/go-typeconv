@@ -39,7 +39,7 @@ func Load(conf loader.Config, args []string) (*loader.Program, []types.Error, er
 }
 
 // RewriteFile rewrites ast.File to fix type conversion errors.
-func RewriteFile(fset *token.FileSet, f *ast.File, typeErrs []types.Error) error {
+func RewriteFile(fset *token.FileSet, f *ast.File, pkg *loader.PackageInfo, typeErrs []types.Error) error {
 	filename := fset.File(f.Pos()).Name()
 
 	for _, e := range typeErrs {
@@ -60,11 +60,11 @@ func RewriteFile(fset *token.FileSet, f *ast.File, typeErrs []types.Error) error
 
 		switch terr := terr.(type) {
 		case *ErrVarDecl:
-			if err := rewriteErrVarDecl(path, terr); err != nil {
+			if err := rewriteErrVarDecl(path, pkg, terr); err != nil {
 				return err
 			}
 		case *ErrFuncArg:
-			if err := rewriteErrFuncArg(path, terr); err != nil {
+			if err := rewriteErrFuncArg(path, pkg, terr); err != nil {
 				return err
 			}
 		}
@@ -73,13 +73,16 @@ func RewriteFile(fset *token.FileSet, f *ast.File, typeErrs []types.Error) error
 	return nil
 }
 
-func rewriteErrVarDecl(path []ast.Node, terr *ErrVarDecl) error {
+func rewriteErrVarDecl(path []ast.Node, pkg *loader.PackageInfo, terr *ErrVarDecl) error {
 	for i := range path {
 		if i+1 >= len(path) {
 			break
 		}
 		child, parent := path[i], path[i+1]
 		if valuespec, ok := parent.(*ast.ValueSpec); ok {
+			if ok := checkConvertibleErrVarDecl(terr, valuespec, child, pkg.Info); !ok {
+				continue
+			}
 			idx := -1
 			for i, value := range valuespec.Values {
 				if value == child {
@@ -88,19 +91,43 @@ func rewriteErrVarDecl(path []ast.Node, terr *ErrVarDecl) error {
 				}
 			}
 			if idx == -1 {
-				return fmt.Errorf("rewriteErrVarDecl: cannot find expected value: %v", child)
+				return nil
 			}
-			// TODO(haya14busa): check terr.ValueType is convertible to terr.NameType
 			valuespec.Values[idx] = &ast.CallExpr{
 				Fun:  ast.NewIdent(terr.NameType),
 				Args: []ast.Expr{valuespec.Values[idx]},
 			}
+			break
 		}
 	}
 	return nil
 }
 
-func rewriteErrFuncArg(path []ast.Node, terr *ErrFuncArg) error {
+// checkConvertibleErrVarDecl checks child type is convertible to parent type.
+// In fact, type error message seemes already covers this check... but leave it
+// for just in case.
+// e.g. `cannot convert "string" (untyped string constant) to int`
+func checkConvertibleErrVarDecl(terr *ErrVarDecl, parent *ast.ValueSpec, child ast.Node, typeinfo types.Info) bool {
+	parentExpr, ok := parent.Type.(ast.Expr)
+	if !ok {
+		return false
+	}
+	parentType := typeinfo.Types[parentExpr].Type
+	if parentType.String() != terr.NameType {
+		return false
+	}
+	childExpr, ok := child.(ast.Expr)
+	if !ok {
+		return false
+	}
+	childType := typeinfo.Types[childExpr].Type
+	if childType.String() != terr.ValueType {
+		return false
+	}
+	return types.ConvertibleTo(childType, parentType)
+}
+
+func rewriteErrFuncArg(path []ast.Node, pkg *loader.PackageInfo, terr *ErrFuncArg) error {
 	for i := range path {
 		if i+1 >= len(path) {
 			break
