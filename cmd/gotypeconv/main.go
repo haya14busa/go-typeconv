@@ -12,10 +12,12 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	typeconv "github.com/haya14busa/go-typeconv"
 
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/loader"
 )
 
@@ -47,14 +49,18 @@ func run(w io.Writer, args []string, opt *option) error {
 	if err != nil {
 		return err
 	}
+	var eg errgroup.Group
+	semaphore := make(chan int, runtime.NumCPU())
 	for _, pkg := range prog.InitialPackages() {
 		for _, f := range pkg.Files {
-			if err := runFile(w, opt, prog, pkg, f, typeErrs); err != nil {
-				return err
-			}
+			semaphore <- 1
+			eg.Go(func() error {
+				defer func() { <-semaphore }()
+				return runFile(w, opt, prog, pkg, f, typeErrs)
+			})
 		}
 	}
-	return nil
+	return eg.Wait()
 }
 
 func runFile(w io.Writer, opt *option, prog *loader.Program, pkg *loader.PackageInfo, f *ast.File, typeErrs []types.Error) error {
