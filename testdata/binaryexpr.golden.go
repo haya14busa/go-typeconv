@@ -8,4 +8,6 @@ func f() {
 
 	z := float64(x) * y
 	_ = z
+	_ = float64(x) == y
+	_ = y == float64(x)
 }

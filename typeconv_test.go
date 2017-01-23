@@ -2,11 +2,11 @@ package typeconv
 
 import (
 	"bytes"
-	"fmt"
 	"go/format"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/kylelemons/godebug/diff"
@@ -42,14 +42,13 @@ func TestLoad(t *testing.T) {
 }
 
 func TestRewriteFile(t *testing.T) {
-	files := []string{
-		"assign",
-		"funcarg",
-		"reassign",
+	files, err := filepath.Glob("testdata/*.input.go")
+	if err != nil {
+		t.Fatal(err)
 	}
 	for _, fname := range files {
-		input := fmt.Sprintf("testdata/%s.input.go", fname)
-		golden := fmt.Sprintf("testdata/%s.golden.go", fname)
+		input := fname
+		golden := strings.Replace(input, "input.go", "golden.go", 1)
 
 		prog, typeErrs, err := Load(loader.Config{}, []string{input})
 		if err != nil {

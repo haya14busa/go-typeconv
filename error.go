@@ -69,10 +69,21 @@ func (*ErrAssign) typ() typErr {
 	return TypeErrAssign
 }
 
+// ErrMismatched represents mismatched type error.
+type ErrMismatched struct {
+	LeftType  string
+	RightType string
+}
+
+func (*ErrMismatched) typ() typErr {
+	return TypeErrMismatched
+}
+
 var regexps = [...]*regexp.Regexp{
-	TypeErrVarDecl: regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in variable declaration$`),
-	TypeErrFuncArg: regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in argument to funcarg$`),
-	TypeErrAssign:  regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in assignment$`),
+	TypeErrVarDecl:    regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in variable declaration$`),
+	TypeErrFuncArg:    regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in argument to funcarg$`),
+	TypeErrAssign:     regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in assignment$`),
+	TypeErrMismatched: regexp.MustCompile(`mismatched types (?P<left>.+) and (?P<right>.+)$`),
 }
 
 // NewTypeErr creates TypeError from types.Error.
@@ -90,6 +101,8 @@ func NewTypeErr(err types.Error) TypeError {
 			return newErrFuncArg(ms, names)
 		case TypeErrAssign:
 			return newErrAssign(ms, names)
+		case TypeErrMismatched:
+			return newErrMismatched(ms, names)
 		}
 	}
 	return nil
@@ -141,6 +154,23 @@ func newErrAssign(matches, names []string) *ErrAssign {
 			err.RightType = m
 		case "want":
 			err.LeftType = m
+		}
+	}
+	return err
+}
+
+func newErrMismatched(matches, names []string) *ErrMismatched {
+	err := &ErrMismatched{}
+	for i, name := range names {
+		if i == 0 {
+			continue
+		}
+		m := matches[i]
+		switch name {
+		case "left":
+			err.LeftType = m
+		case "right":
+			err.RightType = m
 		}
 	}
 	return err

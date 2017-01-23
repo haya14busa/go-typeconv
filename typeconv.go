@@ -71,6 +71,10 @@ func RewriteFile(fset *token.FileSet, f *ast.File, pkg *loader.PackageInfo, type
 			if err := rewriteErrAssign(path, pkg, terr); err != nil {
 				return err
 			}
+		case *ErrMismatched:
+			if err := rewriteErrMismatched(path, pkg, terr); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -185,5 +189,44 @@ func rewriteErrAssign(path []ast.Node, pkg *loader.PackageInfo, terr *ErrAssign)
 		}
 	}
 
+	return nil
+}
+
+func rewriteErrMismatched(path []ast.Node, pkg *loader.PackageInfo, terr *ErrMismatched) error {
+	for i := range path {
+		if i+1 >= len(path) {
+			break
+		}
+		child, parent := path[i], path[i+1]
+		if binaryexpr, ok := parent.(*ast.BinaryExpr); ok {
+			if !(child == binaryexpr.X || child == binaryexpr.Y) {
+				continue
+			}
+
+			ltyp := pkg.Info.TypeOf(binaryexpr.X)
+			rtyp := pkg.Info.TypeOf(binaryexpr.Y)
+
+			// TODO(haya14busa): DefaultRule is global variable.
+			r2l, r2lOk := DefaultRule.ConvertibleTo(rtyp.String(), ltyp.String())
+			r2lOk = r2lOk && types.ConvertibleTo(rtyp, ltyp)
+			l2r, l2rOk := DefaultRule.ConvertibleTo(ltyp.String(), rtyp.String())
+			l2rOk = l2rOk && types.ConvertibleTo(ltyp, rtyp)
+
+			switch {
+			case (r2lOk && !l2rOk) || (r2lOk && l2rOk && r2l > l2r): // right to left
+				binaryexpr.Y = &ast.CallExpr{
+					Fun:  ast.NewIdent(ltyp.String()),
+					Args: []ast.Expr{binaryexpr.Y},
+				}
+			case (!r2lOk && l2rOk) || (r2lOk && l2rOk && r2l <= l2r): // left to right
+				binaryexpr.X = &ast.CallExpr{
+					Fun:  ast.NewIdent(rtyp.String()),
+					Args: []ast.Expr{binaryexpr.X},
+				}
+			default:
+				return nil
+			}
+		}
+	}
 	return nil
 }

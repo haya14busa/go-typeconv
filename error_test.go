@@ -26,6 +26,10 @@ func TestNewTypeErr(t *testing.T) {
 			in:      "cannot use y (variable of type int) as float64 value in assignment",
 			wantTyp: TypeErrAssign,
 		},
+		{
+			in:      "invalid operation: mismatched types int and float64",
+			wantTyp: TypeErrMismatched,
+		},
 	}
 
 	for _, tt := range tests {
