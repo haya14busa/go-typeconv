@@ -5,6 +5,22 @@ import (
 	"regexp"
 )
 
+type typErr int
+
+const (
+	// cannot use x (variable of type int) as uint value in variable declaration
+	TypeErrVarDecl typErr = iota
+
+	// cannot use x (variable of type int) as float64 value in argument to funcarg
+	TypeErrFuncArg
+
+	// cannot use y (type int) as type float64 in assignment
+	TypeErrAssign
+
+	// invalid operation: mismatched types int and float64
+	TypeErrMismatched
+)
+
 // TypeError represents type error.
 type TypeError interface {
 	typ() typErr
@@ -33,24 +49,21 @@ func (*ErrVarDecl) typ() typErr {
 	return TypeErrVarDecl
 }
 
-type typErr int
+// ErrFuncArg represents type error at function arguments.
+//
+//
+type ErrFuncArg struct {
+	ParamType string // https://golang.org/pkg/go/ast/#FuncType
+	ArgType   string // https://golang.org/pkg/go/ast/#CallExpr
+}
 
-const (
-	// cannot use x (variable of type int) as uint value in variable declaration
-	TypeErrVarDecl typErr = iota
-
-	// cannot use x (variable of type int) as float64 value in argument to funcarg
-	TypeErrFuncArg
-
-	// cannot use y (type int) as type float64 in assignment
-	TypeErrAssign
-
-	// invalid operation: mismatched types int and float64
-	TypeErrMismatched
-)
+func (*ErrFuncArg) typ() typErr {
+	return TypeErrFuncArg
+}
 
 var regexps = [...]*regexp.Regexp{
 	TypeErrVarDecl: regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in variable declaration$`),
+	TypeErrFuncArg: regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in argument to funcarg$`),
 }
 
 // NewTypeErr creates TypeError from types.Error.
@@ -64,6 +77,8 @@ func NewTypeErr(err types.Error) TypeError {
 		switch typErr(i) {
 		case TypeErrVarDecl:
 			return newErrVarDecl(ms, names)
+		case TypeErrFuncArg:
+			return newErrFuncArg(ms, names)
 		}
 	}
 	return nil
@@ -81,6 +96,23 @@ func newErrVarDecl(matches, names []string) *ErrVarDecl {
 			err.ValueType = m
 		case "want":
 			err.NameType = m
+		}
+	}
+	return err
+}
+
+func newErrFuncArg(matches, names []string) *ErrFuncArg {
+	err := &ErrFuncArg{}
+	for i, name := range names {
+		if i == 0 {
+			continue
+		}
+		m := matches[i]
+		switch name {
+		case "got":
+			err.ArgType = m
+		case "want":
+			err.ParamType = m
 		}
 	}
 	return err

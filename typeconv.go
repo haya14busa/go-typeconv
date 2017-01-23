@@ -63,6 +63,10 @@ func RewriteFile(fset *token.FileSet, f *ast.File, typeErrs []types.Error) error
 			if err := rewriteErrVarDecl(path, terr); err != nil {
 				return err
 			}
+		case *ErrFuncArg:
+			if err := rewriteErrFuncArg(path, terr); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -90,6 +94,32 @@ func rewriteErrVarDecl(path []ast.Node, terr *ErrVarDecl) error {
 			valuespec.Values[idx] = &ast.CallExpr{
 				Fun:  ast.NewIdent(terr.NameType),
 				Args: []ast.Expr{valuespec.Values[idx]},
+			}
+		}
+	}
+	return nil
+}
+
+func rewriteErrFuncArg(path []ast.Node, terr *ErrFuncArg) error {
+	for i := range path {
+		if i+1 >= len(path) {
+			break
+		}
+		child, parent := path[i], path[i+1]
+		if call, ok := parent.(*ast.CallExpr); ok {
+			idx := -1
+			for i, arg := range call.Args {
+				if arg == child {
+					idx = i
+				}
+			}
+			if idx == -1 {
+				return fmt.Errorf("cannot find expected value: %v", child)
+			}
+			// TODO(haya14busa): check terr.ArgType is convertible to terr.ParamType
+			call.Args[idx] = &ast.CallExpr{
+				Fun:  ast.NewIdent(terr.ParamType),
+				Args: []ast.Expr{call.Args[idx]},
 			}
 		}
 	}
