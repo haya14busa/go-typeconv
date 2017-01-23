@@ -1,0 +1,26 @@
+# Run the below command when you edit .drone.yml
+#   drone secure --repo haya14busa/go-typeconv --in .drone.sec.yaml
+#
+build:
+  test:
+    image: golang
+    commands:
+      - git submodule update --init --recursive
+      - go build -v $(go list ./... | grep -v "/vendor/")
+      - go get -d -v -t $(go list ./... | grep -v "/vendor/")
+      - go test -v -race $(go list ./... | grep -v "/vendor/")
+      - (! gofmt -s -d *.go cmd | grep '^')
+  lint:
+    image: golang
+    environment:
+      - REVIEWDOG_GITHUB_API_TOKEN=$$REVIEWDOG_GITHUB_API_TOKEN
+    commands:
+      - go get github.com/haya14busa/reviewdog/cmd/reviewdog
+      - go get github.com/golang/lint/golint
+      - go get honnef.co/go/unused/cmd/unused
+      - go get honnef.co/go/simple/cmd/gosimple
+      - go get honnef.co/go/staticcheck/cmd/staticcheck
+      - go get github.com/kisielk/errcheck
+      - reviewdog -ci=droneio
+    when:
+      event: pull_request
