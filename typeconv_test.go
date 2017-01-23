@@ -3,7 +3,7 @@ package typeconv
 import (
 	"bytes"
 	"fmt"
-	"go/printer"
+	"go/format"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -61,7 +61,7 @@ func TestRewriteFile(t *testing.T) {
 		}
 
 		buf := new(bytes.Buffer)
-		if err := printer.Fprint(buf, prog.Fset, f); err != nil {
+		if err := format.Node(buf, prog.Fset, f); err != nil {
 			t.Fatalf("%s: %v", fname, err)
 		}
 		gf, err := os.Open(golden)
