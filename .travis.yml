@@ -1,0 +1,16 @@
+language: go
+
+go:
+  - 1.7
+  - tip
+
+install:
+  - go get -d -v -t ./...
+  - go get github.com/haya14busa/goverage
+
+script:
+  - go test -v -race $(go list ./... | grep -v "/vendor/")
+  - goverage -coverprofile=coverage.txt ./...
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
