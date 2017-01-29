@@ -7,17 +7,14 @@ import (
 	"fmt"
 	"go/ast"
 	"go/format"
-	"go/types"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 
 	typeconv "github.com/haya14busa/go-typeconv"
 
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/loader"
 )
 
@@ -49,25 +46,21 @@ func run(w io.Writer, args []string, opt *option) error {
 	if err != nil {
 		return err
 	}
-	var eg errgroup.Group
-	semaphore := make(chan int, runtime.NumCPU())
-	for _, pkg := range prog.InitialPackages() {
-		for _, f := range pkg.Files {
-			semaphore <- 1
-			eg.Go(func() error {
-				defer func() { <-semaphore }()
-				return runFile(w, opt, prog, pkg, f, typeErrs)
-			})
-		}
-	}
-	return eg.Wait()
-}
-
-func runFile(w io.Writer, opt *option, prog *loader.Program, pkg *loader.PackageInfo, f *ast.File, typeErrs []types.Error) error {
-	filename := prog.Fset.File(f.Pos()).Name()
-	if err := typeconv.RewriteFile(prog.Fset, f, pkg, typeErrs); err != nil {
+	if err := typeconv.RewriteProgam(prog, typeErrs); err != nil {
 		return err
 	}
+	for _, pkg := range prog.InitialPackages() {
+		for _, f := range pkg.Files {
+			if err := printFile(w, opt, prog, f); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func printFile(w io.Writer, opt *option, prog *loader.Program, f *ast.File) error {
+	filename := prog.Fset.File(f.Pos()).Name()
 	buf := new(bytes.Buffer)
 	if err := format.Node(buf, prog.Fset, f); err != nil {
 		return err
@@ -148,7 +141,6 @@ func diff(b1, b2 []byte) (data []byte, err error) {
 		err = nil
 	}
 	return
-
 }
 
 type strslice []string

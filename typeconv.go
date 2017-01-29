@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/parser"
-	"go/token"
 	"go/types"
 
-	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/loader"
 )
 
@@ -38,17 +36,10 @@ func Load(conf loader.Config, args []string) (*loader.Program, []types.Error, er
 	return prog, typeErrs, nil
 }
 
-// RewriteFile rewrites ast.File to fix type conversion errors.
-func RewriteFile(fset *token.FileSet, f *ast.File, pkg *loader.PackageInfo, typeErrs []types.Error) error {
-	filename := fset.File(f.Pos()).Name()
-
+// RewriteProgam rewrites program AST to fix type conversion errors.
+func RewriteProgam(prog *loader.Program, typeErrs []types.Error) error {
 	for _, e := range typeErrs {
-		// fmt.Println(e) // debug
-		if filename != e.Fset.File(e.Pos).Name() {
-			continue
-		}
-
-		path, exact := astutil.PathEnclosingInterval(f, e.Pos, e.Pos)
+		pkg, path, exact := prog.PathEnclosingInterval(e.Pos, e.Pos)
 		if !exact {
 			return fmt.Errorf("cannot get exact node position for type error: %v", e)
 		}
