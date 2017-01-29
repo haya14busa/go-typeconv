@@ -14,6 +14,7 @@ install:
 script:
   - go test -v -race $(go list ./... | grep -v "/vendor/")
   - goverage -coverprofile=coverage.txt ./...
+  - (! gofmt -s -d *.go cmd | grep '^')
   - gosumcheck $(go list ./... | grep -v "/vendor/")
 
 after_success:
