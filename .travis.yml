@@ -5,13 +5,16 @@ go:
   - tip
 
 install:
-  - go get -d -v -t ./...
+  - go get -u github.com/golang/dep/...
+  # - go get -d -v -t ./...
+  - dep ensure
   - go get github.com/haya14busa/goverage
   - go get github.com/haya14busa/gosum/cmd/gosumcheck
 
 script:
   - go test -v -race $(go list ./... | grep -v "/vendor/")
   - goverage -coverprofile=coverage.txt ./...
+  - (! gofmt -s -d *.go cmd | grep '^')
   - gosumcheck $(go list ./... | grep -v "/vendor/")
 
 after_success:
