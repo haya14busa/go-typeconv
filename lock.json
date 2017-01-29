@@ -1,0 +1,38 @@
+{
+    "memo": "a229fa8ffd65f2c673eac091096e6e24842732c22068db7c4c140c7bb137d146",
+    "projects": [
+        {
+            "name": "github.com/kylelemons/godebug",
+            "branch": "master",
+            "revision": "d99083b96f422f8fd5a93bc02040acec769e178f",
+            "packages": [
+                "diff"
+            ]
+        },
+        {
+            "name": "golang.org/x/net",
+            "branch": "master",
+            "revision": "f2499483f923065a842d38eb4c7f1927e6fc6e6d",
+            "packages": [
+                "context"
+            ]
+        },
+        {
+            "name": "golang.org/x/sync",
+            "branch": "master",
+            "revision": "1ae7c7b29e06598039be46c5083819ba6fd7a97e",
+            "packages": [
+                "errgroup"
+            ]
+        },
+        {
+            "name": "golang.org/x/tools",
+            "branch": "master",
+            "revision": "721f218496963f33ebc9fbc5cdbdeed007ad9c49",
+            "packages": [
+                "go/ast/astutil",
+                "go/loader"
+            ]
+        }
+    ]
+}

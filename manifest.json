@@ -1,0 +1,10 @@
+{
+    "dependencies": {
+        "golang.org/x/sync": {
+            "branch": "master"
+        },
+        "golang.org/x/tools": {
+            "branch": "master"
+        }
+    }
+}
