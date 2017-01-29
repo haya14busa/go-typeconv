@@ -5,7 +5,9 @@ go:
   - tip
 
 install:
-  - go get -d -v -t ./...
+  - go get -u github.com/golang/dep/...
+  # - go get -d -v -t ./...
+  - dep ensure
   - go get github.com/haya14busa/goverage
   - go get github.com/haya14busa/gosum/cmd/gosumcheck
 
