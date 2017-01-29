@@ -41,7 +41,7 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-func TestRewriteFile(t *testing.T) {
+func TestRewriteProgram(t *testing.T) {
 	files, err := filepath.Glob("testdata/*.input.go")
 	if err != nil {
 		t.Fatal(err)
@@ -54,12 +54,11 @@ func TestRewriteFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", fname, err)
 		}
-		pkg := prog.InitialPackages()[0]
-		f := pkg.Files[0]
-		if err := RewriteFile(prog.Fset, f, pkg, typeErrs); err != nil {
+		if err := RewriteProgam(prog, typeErrs); err != nil {
 			t.Fatalf("%s: %v", fname, err)
 		}
 
+		f := prog.InitialPackages()[0].Files[0]
 		buf := new(bytes.Buffer)
 		if err := format.Node(buf, prog.Fset, f); err != nil {
 			t.Fatalf("%s: %v", fname, err)
