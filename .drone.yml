@@ -2,6 +2,11 @@
 #   drone secure --repo haya14busa/go-typeconv --in .drone.sec.yaml
 #
 build:
+  dep:
+    image: golang
+    commands:
+      - go get github.com/golang/dep/...
+      - dep ensure
   lint:
     image: golang
     environment:
