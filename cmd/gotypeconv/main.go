@@ -51,7 +51,9 @@ func run(w io.Writer, args []string, opt *option) error {
 	}
 	for _, pkg := range prog.InitialPackages() {
 		for _, f := range pkg.Files {
-			printFile(w, opt, prog, f)
+			if err := printFile(w, opt, prog, f); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
