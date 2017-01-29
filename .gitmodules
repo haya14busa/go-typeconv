@@ -1,9 +1,0 @@
-[submodule "vendor/golang.org/x/net"]
-	path = vendor/golang.org/x/net
-	url = https://go.googlesource.com/net
-[submodule "vendor/golang.org/x/sync"]
-	path = vendor/golang.org/x/sync
-	url = https://go.googlesource.com/sync
-[submodule "vendor/golang.org/x/tools"]
-	path = vendor/golang.org/x/tools
-	url = https://go.googlesource.com/tools
