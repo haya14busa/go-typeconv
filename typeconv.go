@@ -29,6 +29,14 @@ func Load(conf loader.Config, args []string) (*loader.Program, []types.Error, er
 	if _, err := conf.FromArgs(args, true); err != nil {
 		return nil, nil, err
 	}
+	conf.TypeCheckFuncBodies = func(path string) bool {
+		// TODO(haya14busa): skip check in func bodies for dependent packages.
+		_, ok := stdlibs[path]
+		if ok {
+			return false // do not check std lib
+		}
+		return true
+	}
 	prog, err := conf.Load()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load program: %v", err)
