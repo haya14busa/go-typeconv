@@ -94,7 +94,7 @@ func (*ErrReturn) typ() typErr {
 
 var regexps = [...]*regexp.Regexp{
 	TypeErrVarDecl:    regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in variable declaration$`),
-	TypeErrFuncArg:    regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in argument to funcarg$`),
+	TypeErrFuncArg:    regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in argument to .*$`),
 	TypeErrAssign:     regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in assignment$`),
 	TypeErrMismatched: regexp.MustCompile(`mismatched types (?P<left>.+) and (?P<right>.+)$`),
 	TypeErrReturn:     regexp.MustCompile(`\((constant .+|variable|value) of type (?P<got>.+)\) as (?P<want>.+) value in return statement$`),
