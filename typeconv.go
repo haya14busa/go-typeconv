@@ -49,27 +49,21 @@ func RewriteProgam(prog *loader.Program, typeErrs []types.Error) error {
 			continue
 		}
 
+		var err error
 		switch terr := terr.(type) {
 		case *ErrVarDecl:
-			if err := rewriteErrVarDecl(path, pkg, terr); err != nil {
-				return err
-			}
+			err = rewriteErrVarDecl(path, pkg, terr)
 		case *ErrFuncArg:
-			if err := rewriteErrFuncArg(path, pkg, terr); err != nil {
-				return err
-			}
+			err = rewriteErrFuncArg(path, pkg, terr)
 		case *ErrAssign:
-			if err := rewriteErrAssign(path, pkg, terr); err != nil {
-				return err
-			}
+			err = rewriteErrAssign(path, pkg, terr)
 		case *ErrMismatched:
-			if err := rewriteErrMismatched(path, pkg, terr); err != nil {
-				return err
-			}
+			err = rewriteErrMismatched(path, pkg, terr)
 		case *ErrReturn:
-			if err := rewriteErrReturn(path, pkg, terr); err != nil {
-				return err
-			}
+			err = rewriteErrReturn(path, pkg, terr)
+		}
+		if err != nil {
+			return err
 		}
 	}
 
