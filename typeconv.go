@@ -70,6 +70,24 @@ func RewriteProgam(prog *loader.Program, typeErrs []types.Error) error {
 	return nil
 }
 
+// unwrapTypeConversion unwraps needless type conversion.
+func unwrapTypeConversion(node ast.Node, pkg *loader.PackageInfo, gotType, wantType string) (n ast.Expr, ok bool) {
+	call, ok := node.(*ast.CallExpr)
+	if !ok || len(call.Args) != 1 {
+		return nil, false
+	}
+	funcName, ok := call.Fun.(*ast.Ident)
+	if !ok || funcName.Name != gotType {
+		return nil, false
+	}
+	arg := call.Args[0]
+	innterType := pkg.TypeOf(arg)
+	if innterType.String() != wantType {
+		return nil, false
+	}
+	return arg, true
+}
+
 func rewriteErrVarDecl(path []ast.Node, pkg *loader.PackageInfo, terr *ErrVarDecl) error {
 	for i := range path {
 		if i+1 >= len(path) {
@@ -88,6 +106,10 @@ func rewriteErrVarDecl(path []ast.Node, pkg *loader.PackageInfo, terr *ErrVarDec
 				}
 			}
 			if idx == -1 {
+				return nil
+			}
+			if node, ok := unwrapTypeConversion(valuespec.Values[idx], pkg, terr.ValueType, terr.NameType); ok {
+				valuespec.Values[idx] = node
 				return nil
 			}
 			valuespec.Values[idx] = &ast.CallExpr{
@@ -140,6 +162,10 @@ func rewriteErrFuncArg(path []ast.Node, pkg *loader.PackageInfo, terr *ErrFuncAr
 			if idx == -1 {
 				continue
 			}
+			if node, ok := unwrapTypeConversion(call.Args[idx], pkg, terr.ArgType, terr.ParamType); ok {
+				call.Args[idx] = node
+				return nil
+			}
 			// TODO(haya14busa): check terr.ArgType is convertible to terr.ParamType
 			call.Args[idx] = &ast.CallExpr{
 				Fun:  ast.NewIdent(terr.ParamType),
@@ -166,6 +192,10 @@ func rewriteErrAssign(path []ast.Node, pkg *loader.PackageInfo, terr *ErrAssign)
 			}
 			if idx == -1 {
 				continue
+			}
+			if node, ok := unwrapTypeConversion(assign.Rhs[idx], pkg, terr.RightType, terr.LeftType); ok {
+				assign.Rhs[idx] = node
+				return nil
 			}
 			left, right := assign.Lhs[idx], assign.Rhs[idx]
 			if !types.ConvertibleTo(pkg.TypeOf(right), pkg.TypeOf(left)) {
@@ -203,11 +233,19 @@ func rewriteErrMismatched(path []ast.Node, pkg *loader.PackageInfo, terr *ErrMis
 
 			switch {
 			case (r2lOk && !l2rOk) || (r2lOk && l2rOk && r2l > l2r): // right to left
+				if node, ok := unwrapTypeConversion(binaryexpr.X, pkg, terr.LeftType, terr.RightType); ok {
+					binaryexpr.X = node
+					return nil
+				}
 				binaryexpr.Y = &ast.CallExpr{
 					Fun:  ast.NewIdent(ltyp.String()),
 					Args: []ast.Expr{binaryexpr.Y},
 				}
 			case (!r2lOk && l2rOk) || (r2lOk && l2rOk && r2l <= l2r): // left to right
+				if node, ok := unwrapTypeConversion(binaryexpr.Y, pkg, terr.RightType, terr.LeftType); ok {
+					binaryexpr.Y = node
+					return nil
+				}
 				binaryexpr.X = &ast.CallExpr{
 					Fun:  ast.NewIdent(rtyp.String()),
 					Args: []ast.Expr{binaryexpr.X},
@@ -242,6 +280,10 @@ func rewriteErrReturn(path []ast.Node, pkg *loader.PackageInfo, terr *ErrReturn)
 		}
 		if idx == -1 {
 			continue
+		}
+		if node, ok := unwrapTypeConversion(returnStmt.Results[idx], pkg, terr.GotType, terr.WantType); ok {
+			returnStmt.Results[idx] = node
+			return nil
 		}
 		gotType := pkg.Info.TypeOf(returnStmt.Results[idx])
 		wantType := pkg.Info.TypeOf(funcDecl.Type.Results.List[idx].Type)
