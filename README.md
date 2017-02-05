@@ -80,6 +80,17 @@ func main() {
 
 gotypeconv also supports displaying diff (`-d` flag) and rewriting files in-place (`-w` flag) same as gofmt.
 
+#### Vim
+
+Use https://github.com/haya14busa/vim-gofmt with following sample config.
+
+```vim
+let g:gofmt_formatters = [
+\   { 'cmd': 'gofmt', 'args': ['-s', '-w'] },
+\   { 'cmd': 'goimports', 'args': ['-w'] },
+\   { 'cmd': 'gotypeconv', 'args': ['-w'] },
+\ ]
+```
 
 ## :bird: Author
 haya14busa (https://github.com/haya14busa)
