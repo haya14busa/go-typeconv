@@ -5,7 +5,6 @@
 [![Coverage](https://codecov.io/gh/haya14busa/go-typeconv/branch/master/graph/badge.svg)](https://codecov.io/gh/haya14busa/go-typeconv)
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-
 Go doesn't have implicit type conversion.
 
 > Unlike in C, in Go assignment between items of different type requires an explicit conversion.
@@ -53,7 +52,6 @@ Above code has type conversion errors as follow.
 
 ```
 $ go build testdata/tour.input.go
-# command-line-arguments
 testdata/tour.input.go:11: cannot use x * x + y * y (type int) as type float64 in argument to math.Sqrt
 testdata/tour.input.go:12: cannot use f (type float64) as type uint in assignment
 ```
