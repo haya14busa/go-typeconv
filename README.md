@@ -78,7 +78,62 @@ func main() {
 
 gotypeconv also supports displaying diff (`-d` flag) and rewriting files in-place (`-w` flag) same as gofmt.
 
-#### Vim
+### More example
+
+Go doesn't have overloading. https://golang.org/doc/faq#overloading
+I like this design too.
+
+However, sometimes... it's inconvenient.
+For example, when you want `max` utility function, you may write something like this `func max(x int64, ys ...int64) int64`.
+It works, but when you want to calculate max of given `int`s, you cannot ues this function unless wrapping them with `int64()`.
+
+You also may start to write `func max(x int, ys ...int) int {`, and change type to int64 later.
+Then, you need to wrap expressions with `int64()` here and there in this case as well.
+
+Here comes gotypeconv, again!
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	var (
+		x int     = 1
+		y int64   = 14
+		z float64 = -1.4
+	)
+
+	var ans int = max(x, x+y, z)
+	fmt.Println(ans)
+}
+
+func max(x int64, ys ...int64) int64 {
+	for _, y := range ys {
+		if y > x {
+			x = y
+		}
+	}
+	return x
+}
+```
+
+Above code can be fixed gotypeconv. (`$ gotypeconv -d testdata/max.input.go`)
+
+```diff
+@@ -9,7 +9,7 @@
+                z float64 = -1.4
+        )
+
+-       var ans int = max(x, x+y, z)
++       var ans int = int(max(int64(x), int64(x)+y, int64(z)))
+        fmt.Println(ans)
+ }
+```
+
+(I miss generics in this case... but gotypeconv can also solve the problem!)
+
+#### Hou to Use in Vim
 
 Use https://github.com/haya14busa/vim-gofmt with following sample config.
 

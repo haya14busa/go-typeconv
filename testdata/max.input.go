@@ -9,7 +9,7 @@ func main() {
 		z float64 = -1.4
 	)
 
-	var ans int = max(x, y, z)
+	var ans int = max(x, x+y, z)
 	fmt.Println(ans)
 }
 
