@@ -46,6 +46,10 @@ func Load(conf loader.Config, args []string) (*loader.Program, []types.Error, er
 
 // RewriteProgam rewrites program AST to fix type conversion errors.
 func RewriteProgam(prog *loader.Program, typeErrs []types.Error) error {
+	// Collects AST rewrite functions and run them in the end instead of running
+	// them for each time because rewriting AST affects getting next node
+	// positions by prog.PathEnclosingInterval.
+	var rewrites []func()
 	for _, e := range typeErrs {
 		pkg, path, exact := prog.PathEnclosingInterval(e.Pos, e.Pos)
 		if !exact {
@@ -57,24 +61,27 @@ func RewriteProgam(prog *loader.Program, typeErrs []types.Error) error {
 			continue
 		}
 
-		var err error
+		var rewrite func()
 		switch terr := terr.(type) {
 		case *ErrVarDecl:
-			err = rewriteErrVarDecl(path, pkg, terr)
+			rewrite = rewriteErrVarDecl(path, pkg, terr)
 		case *ErrFuncArg:
-			err = rewriteErrFuncArg(path, pkg, terr)
+			rewrite = rewriteErrFuncArg(path, pkg, terr)
 		case *ErrAssign:
-			err = rewriteErrAssign(path, pkg, terr)
+			rewrite = rewriteErrAssign(path, pkg, terr)
 		case *ErrMismatched:
-			err = rewriteErrMismatched(path, pkg, terr)
+			rewrite = rewriteErrMismatched(path, pkg, terr)
 		case *ErrReturn:
-			err = rewriteErrReturn(path, pkg, terr)
+			rewrite = rewriteErrReturn(path, pkg, terr)
 		}
-		if err != nil {
-			return err
+		if rewrite != nil {
+			rewrites = append(rewrites, rewrite)
 		}
 	}
-
+	// Executes rewrite functions in the end.
+	for _, f := range rewrites {
+		f()
+	}
 	return nil
 }
 
@@ -96,7 +103,7 @@ func unwrapTypeConversion(node ast.Node, pkg *loader.PackageInfo, gotType, wantT
 	return arg, true
 }
 
-func rewriteErrVarDecl(path []ast.Node, pkg *loader.PackageInfo, terr *ErrVarDecl) error {
+func rewriteErrVarDecl(path []ast.Node, pkg *loader.PackageInfo, terr *ErrVarDecl) (rewrite func()) {
 	for i := range path {
 		if i+1 >= len(path) {
 			break
@@ -116,15 +123,16 @@ func rewriteErrVarDecl(path []ast.Node, pkg *loader.PackageInfo, terr *ErrVarDec
 			if idx == -1 {
 				return nil
 			}
-			if node, ok := unwrapTypeConversion(valuespec.Values[idx], pkg, terr.ValueType, terr.NameType); ok {
-				valuespec.Values[idx] = node
-				return nil
+			return func() {
+				if node, ok := unwrapTypeConversion(valuespec.Values[idx], pkg, terr.ValueType, terr.NameType); ok {
+					valuespec.Values[idx] = node
+					return
+				}
+				valuespec.Values[idx] = &ast.CallExpr{
+					Fun:  ast.NewIdent(terr.NameType),
+					Args: []ast.Expr{valuespec.Values[idx]},
+				}
 			}
-			valuespec.Values[idx] = &ast.CallExpr{
-				Fun:  ast.NewIdent(terr.NameType),
-				Args: []ast.Expr{valuespec.Values[idx]},
-			}
-			break
 		}
 	}
 	return nil
@@ -154,7 +162,7 @@ func checkConvertibleErrVarDecl(terr *ErrVarDecl, parent *ast.ValueSpec, child a
 	return types.ConvertibleTo(childType, parentType)
 }
 
-func rewriteErrFuncArg(path []ast.Node, pkg *loader.PackageInfo, terr *ErrFuncArg) error {
+func rewriteErrFuncArg(path []ast.Node, pkg *loader.PackageInfo, terr *ErrFuncArg) (rewrite func()) {
 	for i := range path {
 		if i+1 >= len(path) {
 			break
@@ -170,21 +178,23 @@ func rewriteErrFuncArg(path []ast.Node, pkg *loader.PackageInfo, terr *ErrFuncAr
 			if idx == -1 {
 				continue
 			}
-			if node, ok := unwrapTypeConversion(call.Args[idx], pkg, terr.ArgType, terr.ParamType); ok {
-				call.Args[idx] = node
-				return nil
-			}
-			// TODO(haya14busa): check terr.ArgType is convertible to terr.ParamType
-			call.Args[idx] = &ast.CallExpr{
-				Fun:  ast.NewIdent(terr.ParamType),
-				Args: []ast.Expr{call.Args[idx]},
+			return func() {
+				if node, ok := unwrapTypeConversion(call.Args[idx], pkg, terr.ArgType, terr.ParamType); ok {
+					call.Args[idx] = node
+					return
+				}
+				// TODO(haya14busa): check terr.ArgType is convertible to terr.ParamType
+				call.Args[idx] = &ast.CallExpr{
+					Fun:  ast.NewIdent(terr.ParamType),
+					Args: []ast.Expr{call.Args[idx]},
+				}
 			}
 		}
 	}
 	return nil
 }
 
-func rewriteErrAssign(path []ast.Node, pkg *loader.PackageInfo, terr *ErrAssign) error {
+func rewriteErrAssign(path []ast.Node, pkg *loader.PackageInfo, terr *ErrAssign) (rewrite func()) {
 	for i := range path {
 		if i+1 >= len(path) {
 			break
@@ -201,17 +211,19 @@ func rewriteErrAssign(path []ast.Node, pkg *loader.PackageInfo, terr *ErrAssign)
 			if idx == -1 {
 				continue
 			}
-			if node, ok := unwrapTypeConversion(assign.Rhs[idx], pkg, terr.RightType, terr.LeftType); ok {
-				assign.Rhs[idx] = node
-				return nil
-			}
-			left, right := assign.Lhs[idx], assign.Rhs[idx]
-			if !types.ConvertibleTo(pkg.TypeOf(right), pkg.TypeOf(left)) {
-				continue
-			}
-			assign.Rhs[idx] = &ast.CallExpr{
-				Fun:  ast.NewIdent(terr.LeftType),
-				Args: []ast.Expr{assign.Rhs[idx]},
+			return func() {
+				if node, ok := unwrapTypeConversion(assign.Rhs[idx], pkg, terr.RightType, terr.LeftType); ok {
+					assign.Rhs[idx] = node
+					return
+				}
+				left, right := assign.Lhs[idx], assign.Rhs[idx]
+				if !types.ConvertibleTo(pkg.TypeOf(right), pkg.TypeOf(left)) {
+					return
+				}
+				assign.Rhs[idx] = &ast.CallExpr{
+					Fun:  ast.NewIdent(terr.LeftType),
+					Args: []ast.Expr{assign.Rhs[idx]},
+				}
 			}
 		}
 	}
@@ -219,7 +231,7 @@ func rewriteErrAssign(path []ast.Node, pkg *loader.PackageInfo, terr *ErrAssign)
 	return nil
 }
 
-func rewriteErrMismatched(path []ast.Node, pkg *loader.PackageInfo, terr *ErrMismatched) error {
+func rewriteErrMismatched(path []ast.Node, pkg *loader.PackageInfo, terr *ErrMismatched) (rewrite func()) {
 	for i := range path {
 		if i+1 >= len(path) {
 			break
@@ -230,43 +242,43 @@ func rewriteErrMismatched(path []ast.Node, pkg *loader.PackageInfo, terr *ErrMis
 				continue
 			}
 
-			ltyp := pkg.Info.TypeOf(binaryexpr.X)
-			rtyp := pkg.Info.TypeOf(binaryexpr.Y)
+			return func() {
+				ltyp := pkg.Info.TypeOf(binaryexpr.X)
+				rtyp := pkg.Info.TypeOf(binaryexpr.Y)
 
-			// TODO(haya14busa): DefaultRule is global variable.
-			r2l, r2lOk := DefaultRule.ConvertibleTo(rtyp.String(), ltyp.String())
-			r2lOk = r2lOk && types.ConvertibleTo(rtyp, ltyp)
-			l2r, l2rOk := DefaultRule.ConvertibleTo(ltyp.String(), rtyp.String())
-			l2rOk = l2rOk && types.ConvertibleTo(ltyp, rtyp)
+				// TODO(haya14busa): DefaultRule is global variable.
+				r2l, r2lOk := DefaultRule.ConvertibleTo(rtyp.String(), ltyp.String())
+				r2lOk = r2lOk && types.ConvertibleTo(rtyp, ltyp)
+				l2r, l2rOk := DefaultRule.ConvertibleTo(ltyp.String(), rtyp.String())
+				l2rOk = l2rOk && types.ConvertibleTo(ltyp, rtyp)
 
-			switch {
-			case (r2lOk && !l2rOk) || (r2lOk && l2rOk && r2l > l2r): // right to left
-				if node, ok := unwrapTypeConversion(binaryexpr.X, pkg, terr.LeftType, terr.RightType); ok {
-					binaryexpr.X = node
-					return nil
+				switch {
+				case (r2lOk && !l2rOk) || (r2lOk && l2rOk && r2l > l2r): // right to left
+					if node, ok := unwrapTypeConversion(binaryexpr.X, pkg, terr.LeftType, terr.RightType); ok {
+						binaryexpr.X = node
+						return
+					}
+					binaryexpr.Y = &ast.CallExpr{
+						Fun:  ast.NewIdent(ltyp.String()),
+						Args: []ast.Expr{binaryexpr.Y},
+					}
+				case (!r2lOk && l2rOk) || (r2lOk && l2rOk && r2l <= l2r): // left to right
+					if node, ok := unwrapTypeConversion(binaryexpr.Y, pkg, terr.RightType, terr.LeftType); ok {
+						binaryexpr.Y = node
+						return
+					}
+					binaryexpr.X = &ast.CallExpr{
+						Fun:  ast.NewIdent(rtyp.String()),
+						Args: []ast.Expr{binaryexpr.X},
+					}
 				}
-				binaryexpr.Y = &ast.CallExpr{
-					Fun:  ast.NewIdent(ltyp.String()),
-					Args: []ast.Expr{binaryexpr.Y},
-				}
-			case (!r2lOk && l2rOk) || (r2lOk && l2rOk && r2l <= l2r): // left to right
-				if node, ok := unwrapTypeConversion(binaryexpr.Y, pkg, terr.RightType, terr.LeftType); ok {
-					binaryexpr.Y = node
-					return nil
-				}
-				binaryexpr.X = &ast.CallExpr{
-					Fun:  ast.NewIdent(rtyp.String()),
-					Args: []ast.Expr{binaryexpr.X},
-				}
-			default:
-				return nil
 			}
 		}
 	}
 	return nil
 }
 
-func rewriteErrReturn(path []ast.Node, pkg *loader.PackageInfo, terr *ErrReturn) error {
+func rewriteErrReturn(path []ast.Node, pkg *loader.PackageInfo, terr *ErrReturn) (rewrite func()) {
 	for i := range path {
 		if i+3 >= len(path) {
 			break
@@ -289,18 +301,19 @@ func rewriteErrReturn(path []ast.Node, pkg *loader.PackageInfo, terr *ErrReturn)
 		if idx == -1 {
 			continue
 		}
-		if node, ok := unwrapTypeConversion(returnStmt.Results[idx], pkg, terr.GotType, terr.WantType); ok {
-			returnStmt.Results[idx] = node
-			return nil
-		}
-		gotType := pkg.Info.TypeOf(returnStmt.Results[idx])
-		wantType := pkg.Info.TypeOf(funcDecl.Type.Results.List[idx].Type)
-		if types.ConvertibleTo(gotType, wantType) {
-			returnStmt.Results[idx] = &ast.CallExpr{
-				Fun:  ast.NewIdent(wantType.String()),
-				Args: []ast.Expr{returnStmt.Results[idx]},
+		return func() {
+			if node, ok := unwrapTypeConversion(returnStmt.Results[idx], pkg, terr.GotType, terr.WantType); ok {
+				returnStmt.Results[idx] = node
+				return
 			}
-			return nil
+			gotType := pkg.Info.TypeOf(returnStmt.Results[idx])
+			wantType := pkg.Info.TypeOf(funcDecl.Type.Results.List[idx].Type)
+			if types.ConvertibleTo(gotType, wantType) {
+				returnStmt.Results[idx] = &ast.CallExpr{
+					Fun:  ast.NewIdent(wantType.String()),
+					Args: []ast.Expr{returnStmt.Results[idx]},
+				}
+			}
 		}
 	}
 	return nil
