@@ -1,4 +1,4 @@
-# go-typeconv - Bring implicit type conversion into Go in a explicit way
+## go-typeconv - Bring implicit type conversion into Go in a explicit way
 
 [![Build Status](https://travis-ci.org/haya14busa/go-typeconv.svg?branch=master)](https://travis-ci.org/haya14busa/go-typeconv)
 [![Go Report Card](https://goreportcard.com/badge/github.com/haya14busa/go-typeconv)](https://goreportcard.com/report/github.com/haya14busa/go-typeconv)
