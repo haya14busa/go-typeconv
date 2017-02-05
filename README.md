@@ -10,6 +10,8 @@ Go doesn't have implicit type conversion.
 > Unlike in C, in Go assignment between items of different type requires an explicit conversion.
 > -- Type conversions https://tour.golang.org/basics/13
 
+FAQ: Why does Go not provide implicit numeric conversions?  https://golang.org/doc/faq#conversions
+
 I like this design. Explicit is better than implicit.
 In Go, almost all things are expressed explicitly.
 
