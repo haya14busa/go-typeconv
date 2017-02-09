@@ -89,7 +89,7 @@ However, sometimes... it's inconvenient.
 For example, when you want `max` utility function, you may write something like this `func max(x int64, ys ...int64) int64`.
 It works, but when you want to calculate max of given `int`s, you cannot ues this function unless wrapping them with `int64()`.
 
-You also may start to write `func max(x int, ys ...int) int {`, and change type to int64 later.
+You also may start to write `func max(x int, ys ...int) int`, and change type to int64 later.
 Then, you need to wrap expressions with `int64()` here and there in this case as well.
 
 Here comes gotypeconv, again!
